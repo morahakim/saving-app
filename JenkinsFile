@@ -1,0 +1,73 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'BRANCH_NAME', choices: ['main', 'dev', 'testing'], description: 'Select Git branch to build')
+    }
+
+    environment {
+        PROJECT_NAME = "SavingApp"
+        SCHEME_NAME = "SavingApp"
+        PROJECT_FILE = "SavingApp.xcodeproj"
+        EXPORT_OPTIONS_PLIST = "ExportOptions.plist"
+        // FIREBASE_APP_ID = "1:428466652750:ios:17b1833904df42f04da51f"
+        // PATH = "/opt/homebrew/bin:/usr/local/bin:$PATH"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: "${params.BRANCH_NAME}", credentialsId: 'git-clima-credential', url: 'git@github.com:morahakim/saving-app.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                if [ -f "Podfile" ]; then
+                    pod install
+                fi
+                '''
+            }
+        }
+
+        stage('Build IPA') {
+            steps {
+                sh '''
+                set -e
+                xcodebuild clean -project "$PROJECT_FILE" -scheme "$SCHEME_NAME" -configuration Release
+                xcodebuild archive -project "$PROJECT_FILE" -scheme "$SCHEME_NAME" -archivePath build/$PROJECT_NAME.xcarchive -destination 'generic/platform=iOS'
+                xcodebuild -exportArchive -archivePath build/$PROJECT_NAME.xcarchive -exportPath build/IPA -exportOptionsPlist "$EXPORT_OPTIONS_PLIST"
+                '''
+            }
+        }
+
+        stage('Archive IPA') {
+            steps {
+                archiveArtifacts artifacts: 'build/IPA/*.ipa', fingerprint: true
+            }
+        }
+
+        // stage('Distribute to Firebase') {
+        //     environment {
+        //         FIREBASE_TOKEN = credentials('firebase-ci-token')
+        //     }
+        //     steps {
+        //         sh '''
+        //         if [ ! -f build/IPA/Clima.ipa ]; then
+        //           echo "❌ IPA not found!"
+        //           exit 1
+        //         fi
+
+        //         echo "🚀 Distributing to Firebase..."
+
+        //         firebase appdistribution:distribute build/IPA/Clima.ipa \
+        //           --app "$FIREBASE_APP_ID" \
+        //           --token "$FIREBASE_TOKEN" \
+        //           --groups "qa-testers" \
+        //           --release-notes "Build from branch: $BRANCH_NAME"
+        //         '''
+        //     }
+        // }
+    }
+}
