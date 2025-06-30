@@ -21,6 +21,18 @@ pipeline {
             }
         }
 
+stage('Set Version') {
+    steps {
+        echo "🔧 Setting version to ${params.VERSION_NAME} (${params.APP_VERSION})"
+        sh '''
+        INFO_PLIST="SavingApp/SavingApp/Info.plist"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION_NAME}" "$INFO_PLIST"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${APP_VERSION}" "$INFO_PLIST"
+        '''
+    }
+}
+
+
         stage('Install Dependencies') {
             steps {
                 sh '''
